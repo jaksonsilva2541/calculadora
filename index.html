@@ -71,6 +71,20 @@
         .hidden {
             display: none;
         }
+        .whatsapp-btn {
+            background-color: #25D366;
+            margin-top: 10px;
+        }
+        .whatsapp-btn:hover {
+            background-color: #128C7E;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        .button-group button {
+            flex: 1;
+        }
     </style>
 </head>
 <body>
@@ -85,7 +99,10 @@
         <label for="parcelas">Número de parcelas:</label>
         <input type="number" id="parcelas" placeholder="Digite o número de parcelas">
         
-        <button onclick="calcularParcela()">Calcular</button>
+        <div class="button-group">
+            <button onclick="calcularParcela()">Calcular</button>
+            <button onclick="enviarWhatsApp()" class="whatsapp-btn" id="whatsappBtn" disabled>Enviar para WhatsApp</button>
+        </div>
         
         <div class="result">
             <p id="resultado"></p>
@@ -108,6 +125,8 @@
     <script>
         let taxa = 0.07; // 7% ao mês (valor padrão)
         const SENHA_ADMIN = "admin123"; // Senha para alterar a taxa
+        let ultimoCalculo = null; // Armazena os dados do último cálculo
+        const NUMERO_WHATSAPP = "+5592993364477"; // Número fixo do WhatsApp
 
         document.addEventListener("DOMContentLoaded", function () {
             document.addEventListener("keypress", function (event) {
@@ -229,15 +248,48 @@
             
             if (isNaN(valor) || valor <= 0 || isNaN(parcelas) || parcelas <= 0 || valorFinanciado <= 0) {
                 document.getElementById('resultado').innerText = "Por favor, insira valores válidos.";
+                document.getElementById('whatsappBtn').disabled = true;
                 return;
             }
             
             let parcela = valorFinanciado * (Math.pow(1 + taxa, parcelas) * taxa) / (Math.pow(1 + taxa, parcelas) - 1);
             
             document.getElementById('resultado').innerHTML = `
+                <strong>Valor do item:</strong> R$ ${formatarMoedaParaExibicao(valor)}<br>
+                <strong>Entrada:</strong> R$ ${formatarMoedaParaExibicao(entrada)}<br>
+                <strong>Valor financiado:</strong> R$ ${formatarMoedaParaExibicao(valorFinanciado)}<br>
                 <strong>Valor da parcela:</strong> R$ ${formatarMoedaParaExibicao(parcela)}<br>
-                <strong>Quantidade de parcelas:</strong> ${parcelas}
+                <strong>Quantidade de parcelas:</strong> ${parcelas}<br>
+                <strong>Taxa de juros:</strong> ${(taxa * 100).toFixed(2).replace('.', ',')}% ao mês
             `;
+            
+            // Armazena os dados do cálculo para enviar pelo WhatsApp
+            ultimoCalculo = {
+                valor: valor,
+                entrada: entrada,
+                valorFinanciado: valorFinanciado,
+                parcela: parcela,
+                parcelas: parcelas,
+                taxa: taxa
+            };
+            
+            // Ativa o botão do WhatsApp
+            document.getElementById('whatsappBtn').disabled = false;
+        }
+        
+        function enviarWhatsApp() {
+            if (!ultimoCalculo) return;
+            
+            const texto = `*Simulação de Parcelamento*%0A%0A` +
+                         `*Valor do item:* R$ ${formatarMoedaParaExibicao(ultimoCalculo.valor)}%0A` +
+                         `*Entrada:* R$ ${formatarMoedaParaExibicao(ultimoCalculo.entrada)}%0A` +
+                         `*Valor financiado:* R$ ${formatarMoedaParaExibicao(ultimoCalculo.valorFinanciado)}%0A` +
+                         `*Parcelas:* ${ultimoCalculo.parcelas}x de R$ ${formatarMoedaParaExibicao(ultimoCalculo.parcela)}%0A` +
+                         `*Taxa de juros:* ${(ultimoCalculo.taxa * 100).toFixed(2).replace('.', ',')}% ao mês%0A%0A` +
+                         `Simulação gerada pela Calculadora de Parcelas`;
+            
+            // Abre o WhatsApp com o número fixo e a mensagem pré-formatada
+            window.open(`https://wa.me/${NUMERO_WHATSAPP}?text=${texto}`, '_blank');
         }
     </script>
 </body>
