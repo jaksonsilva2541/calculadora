@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Parcelas</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e3f2fd;
+            text-align: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+            max-width: 400px;
+            margin: auto;
+        }
+        h2 {
+            color: #1565c0;
+        }
+        label {
+            font-weight: bold;
+            display: block;
+            text-align: left;
+            margin-top: 10px;
+            color: #333;
+        }
+        input {
+            width: calc(100% - 20px);
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            margin-top: 5px;
+        }
+        button {
+            background-color: #1565c0;
+            color: white;
+            border: none;
+            padding: 12px;
+            width: 100%;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 15px;
+        }
+        button:hover {
+            background-color: #0d47a1;
+        }
+        .result {
+            font-size: 18px;
+            color: #333;
+            margin-top: 15px;
+        }
+        .admin-section {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px dashed #ccc;
+        }
+        .admin-toggle {
+            color: #1565c0;
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Calculadora de Parcelas</h2>
+        <label for="valor">Valor do item (R$):</label>
+        <input type="text" id="valor" placeholder="Ex: 1.000,00" oninput="formatarMoeda(this)" onblur="finalizarMoeda(this)">
+        
+        <label for="entrada">Entrada (R$):</label>
+        <input type="text" id="entrada" placeholder="Ex: 200,00" oninput="formatarMoeda(this)" onblur="finalizarMoeda(this)">
+        
+        <label for="parcelas">Número de parcelas:</label>
+        <input type="number" id="parcelas" placeholder="Digite o número de parcelas">
+        
+        <button onclick="calcularParcela()">Calcular</button>
+        
+        <div class="result">
+            <p id="resultado"></p>
+        </div>
+
+        <div class="admin-toggle" onclick="toggleAdminSection()">Alterar taxa de juros (admin)</div>
+        
+        <div id="adminSection" class="admin-section hidden">
+            <label for="senha">Senha:</label>
+            <input type="password" id="senha" placeholder="Digite a senha">
+            
+            <label for="novaTaxa">Nova taxa de juros (% ao mês):</label>
+            <input type="number" id="novaTaxa" step="0.01" placeholder="Digite a nova taxa">
+            
+            <button onclick="alterarTaxa()">Alterar Taxa</button>
+            <p id="mensagemTaxa"></p>
+        </div>
+    </div>
+    
+    <script>
+        let taxa = 0.07; // 7% ao mês (valor padrão)
+        const SENHA_ADMIN = "admin123"; // Senha para alterar a taxa
+
+        document.addEventListener("DOMContentLoaded", function () {
+            document.addEventListener("keypress", function (event) {
+                if (event.key === "Enter") {
+                    calcularParcela();
+                }
+            });
+        });
+        
+        function toggleAdminSection() {
+            const adminSection = document.getElementById('adminSection');
+            adminSection.classList.toggle('hidden');
+        }
+        
+        function formatarMoeda(input) {
+            // Guarda a posição do cursor
+            let posicaoCursor = input.selectionStart;
+            
+            // Remove tudo que não é número ou vírgula
+            let valor = input.value.replace(/[^\d,]/g, '');
+            
+            // Remove vírgulas extras, mantendo apenas a última
+            let partes = valor.split(',');
+            if (partes.length > 2) {
+                valor = partes.slice(0, -1).join('') + ',' + partes[partes.length - 1];
+            }
+            
+            // Formata a parte inteira com pontos
+            let parteInteira = partes[0].replace(/\D/g, '');
+            parteInteira = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            
+            // Se tiver parte decimal, limita a 2 dígitos
+            if (partes.length > 1) {
+                valor = parteInteira + ',' + partes[1].replace(/\D/g, '').substring(0, 2);
+            } else {
+                valor = parteInteira;
+            }
+            
+            // Atualiza o valor no campo
+            input.value = valor;
+            
+            // Ajusta a posição do cursor
+            let cursorAjustado = posicaoCursor;
+            if (valor.length !== input.value.length) {
+                const diff = input.value.length - valor.length;
+                cursorAjustado = posicaoCursor + diff;
+            }
+            input.setSelectionRange(cursorAjustado, cursorAjustado);
+        }
+        
+        function finalizarMoeda(input) {
+            let valor = input.value.replace(/[^\d,]/g, '');
+            let partes = valor.split(',');
+            
+            // Garante que a parte inteira existe
+            let parteInteira = partes[0].replace(/\D/g, '');
+            if (parteInteira === '') parteInteira = '0';
+            parteInteira = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            
+            // Garante que a parte decimal tem 2 dígitos
+            let parteDecimal = '00';
+            if (partes.length > 1) {
+                parteDecimal = partes[1].replace(/\D/g, '').padEnd(2, '0').substring(0, 2);
+            }
+            
+            input.value = parteInteira + ',' + parteDecimal;
+        }
+        
+        function parseValorBR(valorStr) {
+            // Converte "1.000,50" para 1000.50
+            return parseFloat(valorStr.replace(/\./g, '').replace(',', '.'));
+        }
+        
+        function formatarMoedaParaExibicao(valor) {
+            // Converte 1000.5 para "1.000,50"
+            return valor.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        }
+        
+        function alterarTaxa() {
+            const senha = document.getElementById('senha').value;
+            const novaTaxaInput = document.getElementById('novaTaxa').value;
+            const mensagemTaxa = document.getElementById('mensagemTaxa');
+            
+            if (senha !== SENHA_ADMIN) {
+                mensagemTaxa.innerText = "Senha incorreta!";
+                mensagemTaxa.style.color = "red";
+                return;
+            }
+            
+            const novaTaxa = parseFloat(novaTaxaInput) / 100;
+            
+            if (isNaN(novaTaxa) || novaTaxa <= 0) {
+                mensagemTaxa.innerText = "Por favor, insira uma taxa válida.";
+                mensagemTaxa.style.color = "red";
+                return;
+            }
+            
+            taxa = novaTaxa;
+            mensagemTaxa.innerText = `Taxa alterada para ${(taxa * 100).toFixed(2).replace('.', ',')}% ao mês com sucesso!`;
+            mensagemTaxa.style.color = "green";
+            
+            // Limpa os campos e esconde a seção após 3 segundos
+            setTimeout(() => {
+                document.getElementById('senha').value = "";
+                document.getElementById('novaTaxa').value = "";
+                document.getElementById('adminSection').classList.add('hidden');
+                mensagemTaxa.innerText = "";
+            }, 3000);
+        }
+        
+        function calcularParcela() {
+            let valorStr = document.getElementById('valor').value || '0,00';
+            let entradaStr = document.getElementById('entrada').value || '0,00';
+            let parcelas = parseInt(document.getElementById('parcelas').value);
+            
+            let valor = parseValorBR(valorStr);
+            let entrada = parseValorBR(entradaStr);
+            let valorFinanciado = valor - entrada;
+            
+            if (isNaN(valor) || valor <= 0 || isNaN(parcelas) || parcelas <= 0 || valorFinanciado <= 0) {
+                document.getElementById('resultado').innerText = "Por favor, insira valores válidos.";
+                return;
+            }
+            
+            let parcela = valorFinanciado * (Math.pow(1 + taxa, parcelas) * taxa) / (Math.pow(1 + taxa, parcelas) - 1);
+            
+            document.getElementById('resultado').innerHTML = `
+                <strong>Valor da parcela:</strong> R$ ${formatarMoedaParaExibicao(parcela)}<br>
+                <strong>Quantidade de parcelas:</strong> ${parcelas}
+            `;
+        }
+    </script>
+</body>
+</html>
