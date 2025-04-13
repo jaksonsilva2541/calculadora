@@ -47,6 +47,7 @@
             cursor: pointer;
             font-size: 16px;
             margin-top: 15px;
+            transition: background-color 0.3s;
         }
         button:hover {
             background-color: #0d47a1;
@@ -55,25 +56,13 @@
             font-size: 18px;
             color: #333;
             margin-top: 15px;
-        }
-        .admin-section {
-            margin-top: 20px;
-            padding-top: 15px;
-            border-top: 1px dashed #ccc;
-        }
-        .admin-toggle {
-            color: #1565c0;
-            text-decoration: underline;
-            cursor: pointer;
-            font-size: 14px;
-            margin-top: 10px;
-        }
-        .hidden {
-            display: none;
+            text-align: left;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
         }
         .whatsapp-btn {
             background-color: #25D366;
-            margin-top: 10px;
         }
         .whatsapp-btn:hover {
             background-color: #128C7E;
@@ -84,6 +73,26 @@
         }
         .button-group button {
             flex: 1;
+        }
+        .loading {
+            position: relative;
+            pointer-events: none;
+        }
+        .loading::after {
+            content: "";
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: translateY(-50%) rotate(360deg); }
         }
     </style>
 </head>
@@ -101,74 +110,38 @@
         
         <div class="button-group">
             <button onclick="calcularParcela()">Calcular</button>
-            <button onclick="enviarWhatsApp()" class="whatsapp-btn" id="whatsappBtn" disabled>Enviar para WhatsApp</button>
+            <button onclick="enviarWhatsAppDireto()" class="whatsapp-btn" id="whatsappBtn" disabled>Enviar para WhatsApp</button>
         </div>
         
         <div class="result">
-            <p id="resultado"></p>
-        </div>
-
-        <!-- <div class="admin-toggle" onclick="toggleAdminSection()">Alterar taxa de juros (admin)</div>-->
-        
-        <div id="adminSection" class="admin-section hidden">
-            <label for="senha">Senha:</label>
-            <input type="password" id="senha" placeholder="Digite a senha">
-            
-            <label for="novaTaxa">Nova taxa de juros (% ao mês):</label>
-            <input type="number" id="novaTaxa" step="0.01" placeholder="Digite a nova taxa">
-            
-            <button onclick="alterarTaxa()">Alterar Taxa</button>
-            <p id="mensagemTaxa"></p>
+            <p id="resultado">Preencha os dados e clique em Calcular</p>
         </div>
     </div>
     
     <script>
         let taxa = 0.07; // 7% ao mês (valor padrão)
-        const SENHA_ADMIN = "admin123"; // Senha para alterar a taxa
-        let ultimoCalculo = null; // Armazena os dados do último cálculo
-        const NUMERO_WHATSAPP = "+5592993364477"; // Número fixo do WhatsApp
+        let ultimoCalculo = null;
+        const NUMERO_WHATSAPP = "5592993364477"; // Número sem o "+"
 
-        document.addEventListener("DOMContentLoaded", function () {
-            document.addEventListener("keypress", function (event) {
-                if (event.key === "Enter") {
-                    calcularParcela();
-                }
-            });
-        });
-        
-        function toggleAdminSection() {
-            const adminSection = document.getElementById('adminSection');
-            adminSection.classList.toggle('hidden');
-        }
-        
         function formatarMoeda(input) {
-            // Guarda a posição do cursor
             let posicaoCursor = input.selectionStart;
-            
-            // Remove tudo que não é número ou vírgula
             let valor = input.value.replace(/[^\d,]/g, '');
             
-            // Remove vírgulas extras, mantendo apenas a última
             let partes = valor.split(',');
             if (partes.length > 2) {
                 valor = partes.slice(0, -1).join('') + ',' + partes[partes.length - 1];
             }
             
-            // Formata a parte inteira com pontos
             let parteInteira = partes[0].replace(/\D/g, '');
             parteInteira = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             
-            // Se tiver parte decimal, limita a 2 dígitos
             if (partes.length > 1) {
                 valor = parteInteira + ',' + partes[1].replace(/\D/g, '').substring(0, 2);
             } else {
                 valor = parteInteira;
             }
             
-            // Atualiza o valor no campo
             input.value = valor;
-            
-            // Ajusta a posição do cursor
             let cursorAjustado = posicaoCursor;
             if (valor.length !== input.value.length) {
                 const diff = input.value.length - valor.length;
@@ -181,12 +154,10 @@
             let valor = input.value.replace(/[^\d,]/g, '');
             let partes = valor.split(',');
             
-            // Garante que a parte inteira existe
             let parteInteira = partes[0].replace(/\D/g, '');
             if (parteInteira === '') parteInteira = '0';
             parteInteira = parteInteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             
-            // Garante que a parte decimal tem 2 dígitos
             let parteDecimal = '00';
             if (partes.length > 1) {
                 parteDecimal = partes[1].replace(/\D/g, '').padEnd(2, '0').substring(0, 2);
@@ -196,45 +167,11 @@
         }
         
         function parseValorBR(valorStr) {
-            // Converte "1.000,50" para 1000.50
             return parseFloat(valorStr.replace(/\./g, '').replace(',', '.'));
         }
         
         function formatarMoedaParaExibicao(valor) {
-            // Converte 1000.5 para "1.000,50"
             return valor.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-        }
-        
-        function alterarTaxa() {
-            const senha = document.getElementById('senha').value;
-            const novaTaxaInput = document.getElementById('novaTaxa').value;
-            const mensagemTaxa = document.getElementById('mensagemTaxa');
-            
-            if (senha !== SENHA_ADMIN) {
-                mensagemTaxa.innerText = "Senha incorreta!";
-                mensagemTaxa.style.color = "red";
-                return;
-            }
-            
-            const novaTaxa = parseFloat(novaTaxaInput) / 100;
-            
-            if (isNaN(novaTaxa) || novaTaxa <= 0) {
-                mensagemTaxa.innerText = "Por favor, insira uma taxa válida.";
-                mensagemTaxa.style.color = "red";
-                return;
-            }
-            
-            taxa = novaTaxa;
-            mensagemTaxa.innerText = `Taxa alterada para ${(taxa * 100).toFixed(2).replace('.', ',')}% ao mês com sucesso!`;
-            mensagemTaxa.style.color = "green";
-            
-            // Limpa os campos e esconde a seção após 3 segundos
-            setTimeout(() => {
-                document.getElementById('senha').value = "";
-                document.getElementById('novaTaxa').value = "";
-                document.getElementById('adminSection').classList.add('hidden');
-                mensagemTaxa.innerText = "";
-            }, 3000);
         }
         
         function calcularParcela() {
@@ -247,49 +184,71 @@
             let valorFinanciado = valor - entrada;
             
             if (isNaN(valor) || valor <= 0 || isNaN(parcelas) || parcelas <= 0 || valorFinanciado <= 0) {
-                document.getElementById('resultado').innerText = "Por favor, insira valores válidos.";
+                document.getElementById('resultado').innerHTML = 
+                    '<span style="color:red">Por favor, insira valores válidos.</span>';
                 document.getElementById('whatsappBtn').disabled = true;
                 return;
             }
             
             let parcela = valorFinanciado * (Math.pow(1 + taxa, parcelas) * taxa) / (Math.pow(1 + taxa, parcelas) - 1);
+            let totalParcelado = parcela * parcelas;
             
-            document.getElementById('resultado').innerHTML = `
-                <strong>Valor do item:</strong> R$ ${formatarMoedaParaExibicao(valor)}<br>
-                <strong>Entrada:</strong> R$ ${formatarMoedaParaExibicao(entrada)}<br>
-                <strong>Valor financiado:</strong> R$ ${formatarMoedaParaExibicao(valorFinanciado)}<br>
-                <strong>Valor da parcela:</strong> R$ ${formatarMoedaParaExibicao(parcela)}<br>
-                <strong>Quantidade de parcelas:</strong> ${parcelas}<br>
-                <strong>Taxa de juros:</strong> ${(taxa * 100).toFixed(2).replace('.', ',')}% ao mês
-            `;
-            
-            // Armazena os dados do cálculo para enviar pelo WhatsApp
             ultimoCalculo = {
                 valor: valor,
                 entrada: entrada,
                 valorFinanciado: valorFinanciado,
                 parcela: parcela,
                 parcelas: parcelas,
-                taxa: taxa
+                totalParcelado: totalParcelado
             };
             
-            // Ativa o botão do WhatsApp
+            document.getElementById('resultado').innerHTML = `
+                <strong>Valor do item:</strong> R$ ${formatarMoedaParaExibicao(valor)}<br>
+                <strong>Entrada:</strong> R$ ${formatarMoedaParaExibicao(entrada)}<br>
+                <strong>Valor financiado:</strong> R$ ${formatarMoedaParaExibicao(valorFinanciado)}<br>
+                <strong>Parcelas:</strong> ${parcelas}x de R$ ${formatarMoedaParaExibicao(parcela)}<br>
+                <strong>Total a prazo:</strong> R$ ${formatarMoedaParaExibicao(totalParcelado)}
+            `;
+            
             document.getElementById('whatsappBtn').disabled = false;
         }
         
-        function enviarWhatsApp() {
-            if (!ultimoCalculo) return;
+        function enviarWhatsAppDireto() {
+            if (!ultimoCalculo) {
+                alert("Por favor, calcule as parcelas primeiro!");
+                return;
+            }
+
+            const btn = document.getElementById('whatsappBtn');
+            btn.classList.add('loading');
+            btn.innerHTML = 'Enviando...';
             
-            const texto = `*Simulação de Parcelamento*%0A%0A` +
-                         `*Valor do item:* R$ ${formatarMoedaParaExibicao(ultimoCalculo.valor)}%0A` +
-                         `*Entrada:* R$ ${formatarMoedaParaExibicao(ultimoCalculo.entrada)}%0A` +
-                         `*Valor financiado:* R$ ${formatarMoedaParaExibicao(ultimoCalculo.valorFinanciado)}%0A` +
-                         `*Parcelas:* ${ultimoCalculo.parcelas}x de R$ ${formatarMoedaParaExibicao(ultimoCalculo.parcela)}%0A` +
-                         `*Taxa de juros:* ${(ultimoCalculo.taxa * 100).toFixed(2).replace('.', ',')}% ao mês%0A%0A` +
-                         `Simulação gerada pela Calculadora de Parcelas`;
+            const texto = encodeURIComponent(
+                `*SIMULAÇÃO DE PARCELAMENTO*\n\n` +
+                `💰 *Valor do produto:* R$ ${formatarMoedaParaExibicao(ultimoCalculo.valor)}\n` +
+                `💵 *Entrada:* R$ ${formatarMoedaParaExibicao(ultimoCalculo.entrada)}\n` +
+                `📊 *Valor financiado:* R$ ${formatarMoedaParaExibicao(ultimoCalculo.valorFinanciado)}\n` +
+                `📅 *Parcelas:* ${ultimoCalculo.parcelas}x de R$ ${formatarMoedaParaExibicao(ultimoCalculo.parcela)}\n` +
+                `🔢 *Total a prazo:* R$ ${formatarMoedaParaExibicao(ultimoCalculo.totalParcelado)}\n\n` +
+                `_Simulado em ${new Date().toLocaleDateString('pt-BR')}_`
+            );
+
+            // Detecta se é dispositivo móvel
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
             
-            // Abre o WhatsApp com o número fixo e a mensagem pré-formatada
-            window.open(`https://wa.me/${NUMERO_WHATSAPP}?text=${texto}`, '_blank');
+            if (isMobile) {
+                // Tenta abrir no app nativo
+                window.location.href = `whatsapp://send?phone=${NUMERO_WHATSAPP}&text=${texto}`;
+            } else {
+                // Abre no WhatsApp Web
+                window.open(`https://web.whatsapp.com/send?phone=${NUMERO_WHATSAPP}&text=${texto}`, '_blank');
+            }
+            
+            // Reseta o botão após 2 segundos
+            setTimeout(() => {
+                btn.classList.remove('loading');
+                btn.innerHTML = 'Enviar para WhatsApp';
+            }, 2000);
         }
     </script>
 </body>
